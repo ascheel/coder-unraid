@@ -9,49 +9,38 @@ TEMPLATE_DIR="/home/coder/templates"
 TEMPLATE_FILE="docker-workspace.tf"
 TEMPLATE_NAME="docker-workspace-unraid"
 MAX_WAIT=300
-WAIT_TIME=0
 
 # Function to check if template already exists
 template_exists() {
-    local template_name="$1"
-    /usr/local/bin/coder templates list --output json 2>/dev/null | grep -q "\"name\":\"$template_name\"" || return 1
+    /usr/local/bin/coder templates list --output json 2>/dev/null | grep -q "\"name\":\"$TEMPLATE_NAME\"" || return 1
 }
 
 # Function to import template
 import_template() {
-    local template_dir="$1"
-    local template_name="$2"
-    
-    if [ ! -d "$template_dir" ]; then
-        echo "⚠ Template directory not found: $template_dir"
+    if [ ! -d "$TEMPLATE_DIR" ]; then
+        echo "⚠ Template directory not found: $TEMPLATE_DIR"
         return 1
     fi
     
-    if [ ! -f "$template_dir/$TEMPLATE_FILE" ]; then
-        echo "⚠ Template file not found: $template_dir/$TEMPLATE_FILE"
+    if [ ! -f "$TEMPLATE_DIR/$TEMPLATE_FILE" ]; then
+        echo "⚠ Template file not found: $TEMPLATE_DIR/$TEMPLATE_FILE"
         return 1
     fi
     
-    echo "Importing template: $template_name"
-    
-    # Check if template already exists
-    if template_exists "$template_name"; then
-        echo "Template '$template_name' already exists. Skipping import."
+    if template_exists; then
+        echo "Template '$TEMPLATE_NAME' already exists. Skipping import."
         return 0
-    else
-        echo "Creating new template: $template_name"
-        if /usr/local/bin/coder templates create "$template_name" \
-            --directory "$template_dir" \
-            --yes 2>&1; then
-            echo "✓ Template imported successfully"
-            return 0
-        else
-            echo "⚠ Template import failed (may already exist or Coder not ready)"
-            return 1
-        fi
     fi
     
-    return 0
+    echo "Importing template: $TEMPLATE_NAME"
+    if /usr/local/bin/coder templates create "$TEMPLATE_NAME" \
+        --directory "$TEMPLATE_DIR" \
+        --yes 2>&1; then
+        echo "✓ Template imported successfully"
+    else
+        echo "⚠ Template import failed (may already exist or Coder not ready)"
+        return 1
+    fi
 }
 
 # Start Coder server in background
@@ -65,6 +54,7 @@ CODER_PID=$!
 # Wait for Coder to be ready
 echo ""
 echo "Waiting for Coder to initialize..."
+WAIT_TIME=0
 while [ $WAIT_TIME -lt $MAX_WAIT ]; do
     if curl -s -f "${CODER_URL}/api/v2/users/me" > /dev/null 2>&1; then
         echo "✓ Coder is ready!"
@@ -81,20 +71,17 @@ if [ $WAIT_TIME -ge $MAX_WAIT ]; then
     echo "⚠ Coder did not become ready after ${MAX_WAIT}s"
     echo "  Template import will be skipped"
     echo "  Coder server will continue running"
+elif [ -f "$TEMPLATE_DIR/$TEMPLATE_FILE" ]; then
+    echo ""
+    echo "=========================================="
+    echo "Auto-importing template..."
+    echo "=========================================="
+    export CODER_ACCESS_URL="$CODER_URL"
+    import_template || true
+    echo ""
 else
-    # Import template if it exists
-    if [ -f "$TEMPLATE_DIR/$TEMPLATE_FILE" ]; then
-        echo ""
-        echo "=========================================="
-        echo "Auto-importing template..."
-        echo "=========================================="
-        export CODER_ACCESS_URL="$CODER_URL"
-        import_template "$TEMPLATE_DIR" "$TEMPLATE_NAME" || true
-        echo ""
-    else
-        echo "⚠ Template file not found at $TEMPLATE_DIR/$TEMPLATE_FILE"
-        echo "  Skipping template import"
-    fi
+    echo "⚠ Template file not found at $TEMPLATE_DIR/$TEMPLATE_FILE"
+    echo "  Skipping template import"
 fi
 
 echo "=========================================="

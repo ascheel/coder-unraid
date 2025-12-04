@@ -94,29 +94,42 @@ The image is tagged to match Coder versions:
 
 ## GitHub Actions
 
-The repository includes a GitHub Actions workflow (`.github/workflows/build-image.yml`) that:
-- Automatically builds on pushes to `main`
-- Builds on version tags (e.g., `v2.27.7`)
-- Pushes to GitHub Container Registry
-- Supports manual workflow dispatch
+The repository includes a GitHub Actions workflow (`.github/workflows/build-docker-image.yml`) that builds and pushes the Docker image to GitHub Container Registry.
+
+### Features
+
+- **Manual dispatch only** - Builds only when manually triggered
+- **Version selection** - Specify Coder version or use `latest`
+- **Automatic tagging** - Creates version-specific tag and updates `latest`
+- **amd64 platform** - Builds for linux/amd64 architecture
+- **Free for public repos** - No charges for GitHub Actions on public repositories
 
 ### Setting Up GitHub Actions
 
 1. **Enable GitHub Container Registry**:
    - Go to repository Settings → Actions → General
    - Ensure "Read and write permissions" is enabled
+   - This allows the workflow to push images to `ghcr.io`
 
-2. **Workflow will automatically**:
-   - Build on push to main
-   - Build on version tags
-   - Push to `ghcr.io/ascheel/coder-unraid`
+2. **No additional secrets needed**:
+   - The workflow uses `GITHUB_TOKEN` automatically provided by GitHub Actions
+   - No manual authentication setup required
 
 ### Manual Workflow Trigger
 
-1. Go to Actions → Build and Push Docker Image
-2. Click "Run workflow"
-3. Optionally specify Coder version
-4. Run workflow
+1. Go to the **Actions** tab in your GitHub repository
+2. Select **"Build and Push Docker Image"** workflow from the left sidebar
+3. Click **"Run workflow"** button
+4. Optionally specify a Coder version:
+   - Leave empty or enter `latest` to build from the latest Coder image
+   - Enter a specific version like `v2.27.7` to build from that version
+5. Click **"Run workflow"** to start the build
+
+The workflow will:
+- Build the Docker image with the specified Coder version
+- Tag it with the version (or `latest` if not specified)
+- Also tag it as `latest` (unless version was already `latest`)
+- Push both tags to `ghcr.io/ascheel/coder-unraid`
 
 ## Testing the Image
 
@@ -155,7 +168,7 @@ docker exec coder-test coder templates list
 
 ### Using GitHub Actions (Recommended)
 
-The GitHub Actions workflow handles building and pushing automatically. Just push to the repository or create a tag.
+The GitHub Actions workflow handles building and pushing. Simply trigger it manually from the Actions tab when you need to build a new image.
 
 ## Image Tags
 
