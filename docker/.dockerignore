@@ -18,8 +18,6 @@ ICON_HOSTING.md
 USER_PERMISSIONS.md
 
 # Scripts not needed in image
-install-coder.sh
-unraid-user-script.sh
 update-version.sh
 
 # Build artifacts
