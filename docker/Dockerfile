@@ -19,7 +19,8 @@ COPY import-template.sh /home/coder/templates/import-template.sh
 COPY entrypoint-wrapper.sh /usr/local/bin/entrypoint-wrapper.sh
 
 # Make scripts executable
-RUN chmod +x /home/coder/templates/import-template.sh && \
+RUN ls -l /home/coder/templates /usr/local/bin && \
+    chmod +x /home/coder/templates/import-template.sh && \
     chmod +x /usr/local/bin/entrypoint-wrapper.sh
 
 # Set the wrapper as the entrypoint
