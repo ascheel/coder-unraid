@@ -19,7 +19,7 @@ COPY import-template.sh /home/coder/templates/import-template.sh
 COPY entrypoint-wrapper.sh /usr/local/bin/entrypoint-wrapper.sh
 
 # Make scripts executable
-RUN ls -l /home/coder/templates /usr/local/bin && \
+RUN ls -ld /home/coder/templates /usr/local/bin && \
     chmod +x /home/coder/templates/import-template.sh && \
     chmod +x /usr/local/bin/entrypoint-wrapper.sh
 
