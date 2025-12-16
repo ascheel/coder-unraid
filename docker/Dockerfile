@@ -8,6 +8,8 @@
 ARG CODER_VERSION=latest
 FROM ghcr.io/coder/coder:${CODER_VERSION}
 
+USER root
+
 # Set working directory
 WORKDIR /home/coder
 
