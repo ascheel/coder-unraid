@@ -153,6 +153,8 @@ resource "docker_container" "workspace" {
   name = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
   # Hostname makes the shell more user friendly: coder@my-workspace:~$
   hostname = data.coder_workspace.me.name
+  # Run as coder user (UID 1000) instead of root to avoid permission issues
+  user = "1000:1000"
   # Use the docker gateway if the access URL is 127.0.0.1
   entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
   env        = ["CODER_AGENT_TOKEN=${coder_agent.main.token}"]
@@ -162,7 +164,12 @@ resource "docker_container" "workspace" {
   }
   volumes {
     container_path = "/home/coder"
-    host_path      = "/mnt/user/appdata/coder/workspaces/${data.coder_workspace.me.id}"
+    host_path      = "/mnt/user/appdata/coder/workspaces/${data.coder_workspace.me.name}"
+    read_only      = false
+  }
+  volumes {
+    container_path = "/home/coder/shared"
+    host_path      = "/mnt/user/appdata/coder/workspaces/shared"
     read_only      = false
   }
 
