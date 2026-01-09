@@ -13,9 +13,9 @@ USER root
 # Set working directory
 WORKDIR /home/coder
 
-# Copy template files
-COPY docker-workspace.tf /home/coder/templates/docker-workspace.tf
-COPY import-template.sh /home/coder/templates/import-template.sh
+# Copy template file
+COPY workspace-template-user.tf /home/coder/templates/docker-workspace.tf
+COPY workspace-template-owner.tf /home/coder/templates/docker-workspace-owner.tf
 
 # Copy entrypoint wrapper
 COPY entrypoint-wrapper.sh /usr/local/bin/entrypoint-wrapper.sh
@@ -33,7 +33,6 @@ RUN if ! getent passwd 99 >/dev/null 2>&1; then \
 # Make scripts executable and fix ownership
 # Change ownership to UID 99:100 (unRAID nobody:users) to match compose.yaml user setting
 RUN ls -ld /home/coder/templates /usr/local/bin && \
-    chmod +x /home/coder/templates/import-template.sh && \
     chmod +x /usr/local/bin/entrypoint-wrapper.sh && \
     chown -R 99:100 /home/coder && \
     chown 99:100 /usr/local/bin/entrypoint-wrapper.sh && \

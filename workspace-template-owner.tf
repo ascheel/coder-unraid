@@ -11,6 +11,26 @@ terraform {
 
 locals {
   username = data.coder_workspace_owner.me.name
+  
+  # User modification script to run as root before switching to coder user
+  user_mod_script = <<-USERMOD
+    # Modify coder user UID/GID if running as root
+    if [ "$(id -u)" = "0" ] && id coder >/dev/null 2>&1; then
+      CURRENT_UID=$(id -u coder)
+      if [ "$CURRENT_UID" = "1000" ]; then
+        usermod -u 99 coder 2>/dev/null || true
+        if getent group coder >/dev/null 2>&1; then
+          groupmod -g 100 coder 2>/dev/null || usermod -g 100 coder 2>/dev/null || true
+        else
+          usermod -g 100 coder 2>/dev/null || true
+        fi
+        chown -R 99:100 /home/coder 2>/dev/null || true
+      fi
+    fi
+  USERMOD
+  
+  # Processed init script with localhost replaced
+  init_script_processed = replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")
 }
 
 variable "docker_socket" {
@@ -48,6 +68,9 @@ resource "coder_agent" "main" {
   # You can remove this block if you'd prefer to configure Git manually or using
   # dotfiles. (see docs/dotfiles.md)
   env = {
+    # Disable VSCode Desktop
+    CODER_DISABLE_VSCODE_DESKTOP = "true"
+
     GIT_AUTHOR_NAME     = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
     GIT_AUTHOR_EMAIL    = "${data.coder_workspace_owner.me.email}"
     GIT_COMMITTER_NAME  = coalesce(data.coder_workspace_owner.me.full_name, data.coder_workspace_owner.me.name)
@@ -133,15 +156,13 @@ module "code-server" {
   order    = 1
 }
 
-# See https://registry.coder.com/modules/coder/jetbrains
-module "jetbrains" {
-  count      = data.coder_workspace.me.start_count
-  source     = "registry.coder.com/coder/jetbrains/coder"
-  version    = "~> 1.1"
-  agent_id   = coder_agent.main.id
-  agent_name = "main"
-  folder     = "/home/coder"
-  tooltip    = "You need to [Install Coder Desktop](https://coder.com/docs/user-guides/desktop#install-coder-desktop) to use this button."
+module "vscode-web" {
+  count = 0 # Disabled
+  # count          = data.coder_workspace.me.start_count
+  source         = "registry.coder.com/coder/vscode-web/coder"
+  version        = "1.4.3"
+  agent_id       = coder_agent.main.id
+  accept_license = true
 }
 
 # Removed docker_volume resource - using bind mount instead for unRAID persistence
@@ -153,10 +174,17 @@ resource "docker_container" "workspace" {
   name = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
   # Hostname makes the shell more user friendly: coder@my-workspace:~$
   hostname = data.coder_workspace.me.name
-  # Run as coder user (UID 1000) instead of root to avoid permission issues
-  user = "1000:1000"
-  # Use the docker gateway if the access URL is 127.0.0.1
-  entrypoint = ["sh", "-c", replace(coder_agent.main.init_script, "/localhost|127\\.0\\.0\\.1/", "host.docker.internal")]
+  # Run as root to allow user modification
+  user = "0:0"
+  
+  # Upload init script as a file (avoids shell quoting issues)
+  upload {
+    content = local.init_script_processed
+    file    = "/tmp/coder_init.sh"
+  }
+  
+  # Simple entrypoint: modify user, then switch to coder and run init script
+  entrypoint = ["sh", "-c", "${local.user_mod_script}\nchmod +x /tmp/coder_init.sh && exec su -s /bin/bash coder /tmp/coder_init.sh"]
   env        = ["CODER_AGENT_TOKEN=${coder_agent.main.token}"]
   host {
     host = "host.docker.internal"
@@ -164,12 +192,7 @@ resource "docker_container" "workspace" {
   }
   volumes {
     container_path = "/home/coder"
-    host_path      = "/mnt/user/appdata/coder/workspaces/${data.coder_workspace.me.name}"
-    read_only      = false
-  }
-  volumes {
-    container_path = "/home/coder/shared"
-    host_path      = "/mnt/user/appdata/coder/workspaces/shared"
+    host_path      = "/mnt/user/appdata/coder/workspaces"
     read_only      = false
   }
 

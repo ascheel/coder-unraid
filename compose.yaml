@@ -1,0 +1,27 @@
+services:
+  coder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        CODER_VERSION: v2.28.6
+    image: coder:v2.28.6
+    pull_policy: build
+    container_name: coder
+    restart: unless-stopped
+    ports:
+      - "7080:7080"
+    environment:
+      - CODER_ACCESS_URL=http://192.168.1.30:7080/
+      - CODER_HTTP_ADDRESS=0.0.0.0:7080
+      - USER=nobody
+      - CODER_DISABLE_VSCODE_DESKTOP=true
+      - CODER_DISABLE_PASSWORD_POLICY=true
+      - CODER_PASSWORD_POLICY=none
+      - CODER_DANGEROUS_ALLOW_PATH_APP_SITE_OWNER_ACCESS=true
+    user: "99:100"  # unRAID nobody user (UID 99, GID 100)
+    volumes:
+      - /mnt/user/appdata/coder:/home/coder/.config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    group_add:
+      - "281"  # Docker socket GID - update if needed: stat -c %g /var/run/docker.sock
